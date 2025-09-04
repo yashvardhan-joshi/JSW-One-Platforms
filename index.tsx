@@ -3,9 +3,6 @@ import { GoogleGenAI } from "@google/genai";
 // FIX: Declare Chart to inform TypeScript that it's available in the global scope (likely from a <script> tag).
 declare var Chart: any;
 
-// --- GEMINI API INITIALIZATION ---
-const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
-
 // --- UI STATE ---
 let selectedMonthIndex = 0;
 
@@ -333,6 +330,13 @@ function renderKPIs() {
     document.getElementById('installs-target-text').textContent = `Target: ${formatNumber(scenario.kpi.totalInstallsTarget)}`;
 
     const firstMonth = scenario.forecast.months[0];
+    if (!firstMonth) {
+        document.getElementById('top-driver-icon').innerHTML = '';
+        document.getElementById('top-driver-text').textContent = 'N/A';
+        document.getElementById('top-driver-subtext').textContent = 'No data available';
+        document.getElementById('cvr-chart-text').innerHTML = `<div class="text-2xl font-bold text-gray-800">0%</div>`;
+        return;
+    }
     const drivers = { "Web SEO": firstMonth.results.installsFromWeb, "App Store": firstMonth.results.installsFromStoreSearch, "Direct": firstMonth.drivers.baseDirectReferrals };
     const topDriver = Object.entries(drivers).reduce((a, b) => a[1] > b[1] ? a : b);
     const driverIcons = { "Web SEO": `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9V3"></path></svg>`, "App Store": `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>`, "Direct": `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>` };
@@ -683,6 +687,9 @@ function updateClock() {
 }
 
 async function generateAndLoadMockups() {
+    // Initialize the Gemini API client here, just before it's used.
+    const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
+
     const displayImage = document.getElementById('mockup-display') as HTMLImageElement;
     const thumbnailContainers = document.querySelectorAll('.mockup-thumbnail');
     if (!displayImage || thumbnailContainers.length === 0) return;
