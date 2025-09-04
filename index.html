@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSW MSME iOS App - ASO Launch Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .kpi-card {
+            background-color: white;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1);
+        }
+        .tab-button {
+            padding: 0.75rem 0.25rem;
+            margin: 0 1rem;
+            border-bottom: 3px solid transparent;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            color: #4b5563;
+            white-space: nowrap;
+        }
+        .tab-button.active {
+            color: #1e3a8a; /* JSW Blue */
+            border-color: #D9232D; /* JSW Red */
+        }
+        .tab-button:not(.active):hover {
+            color: #111827;
+            border-color: #d1d5db;
+        }
+        .progress-bar-bg {
+            background-color: #e5e7eb;
+            border-radius: 9999px;
+            height: 10px;
+        }
+        .progress-bar-fill {
+            background-color: #2563eb;
+            border-radius: 9999px;
+            height: 10px;
+        }
+        .status-select {
+            border-radius: 0.375rem;
+            padding: 0.25rem 0.5rem;
+            border: 1px solid #d1d5db;
+        }
+        .status-Not-Started { background-color: #e5e7eb; color: #4b5563; }
+        .status-In-Progress { background-color: #fef9c3; color: #854d0e; }
+        .status-Completed { background-color: #dcfce7; color: #166534; }
+        .status-Blocked { background-color: #fee2e2; color: #991b1b; }
+        .editable-cell {
+            background-color: #fefce8;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 4px;
+            border: 1px dashed #ddd6fe;
+            transition: all 0.2s ease-in-out;
+        }
+        .editable-cell:hover {
+            background-color: #fef9c3;
+            border-color: #a78bfa;
+        }
+        .assumption-input {
+            background-color: #fefce8;
+            cursor: text;
+            padding: 0.5rem;
+            border-radius: 4px;
+            border: 1px solid #d1d5db;
+            transition: all 0.2s ease-in-out;
+        }
+        .assumption-input:hover {
+            background-color: #fef9c3;
+            border-color: #a78bfa;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 280px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 10;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -140px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+            font-weight: 400;
+            line-height: 1.4;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        .details-row {
+            display: none;
+        }
+        .details-row.open {
+            display: table-row;
+        }
+        .toggle-btn {
+            cursor: pointer;
+        }
+        .toggle-btn svg {
+            transition: transform 0.2s ease-in-out;
+        }
+        .toggle-btn.open svg {
+            transform: rotate(90deg);
+        }
+        /* Phone Mockup styles */
+        .phone-mockup {
+            position: relative;
+            width: 100%;
+            max-width: 300px;
+            height: 600px;
+            margin: auto;
+            border: 12px solid #1f2937;
+            border-radius: 40px;
+            background: #fff;
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            overflow: hidden;
+        }
+        .phone-screen {
+            width: 100%;
+            height: 100%;
+            background: #f9fafb;
+            overflow-y: auto;
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        .phone-screen::-webkit-scrollbar {
+            display: none; /* Chrome, Safari, Opera */
+        }
+        .phone-notch {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50%;
+            height: 25px;
+            background: #1f2937;
+            border-bottom-left-radius: 15px;
+            border-bottom-right-radius: 15px;
+            z-index: 2;
+        }
+        .mockup-thumbnail {
+            cursor: pointer;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            transition: all 0.2s ease-in-out;
+            overflow: hidden;
+            aspect-ratio: 9/16;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f3f4f6;
+        }
+        .mockup-thumbnail:hover {
+            border-color: #60a5fa;
+            transform: scale(1.05);
+        }
+        .mockup-thumbnail.active {
+            border-color: #D9232D; /* JSW Red */
+            box-shadow: 0 0 8px rgba(217, 35, 45, 0.6);
+            transform: scale(1.05);
+        }
+        .mockup-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none; /* Hidden by default, shown when loaded */
+        }
+        .mockup-thumbnail .spinner {
+            width: 2rem;
+            height: 2rem;
+            border: 3px solid rgba(30, 58, 138, 0.2);
+            border-top-color: #1e3a8a;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.16.0"
+  }
+}
+</script>
+</head>
+<body class="p-4 sm:p-6 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">MSME iOS App - ASO Launch Dashboard</h1>
+                <p class="text-sm text-gray-500">Real-time forecast based on project plan adjustments.</p>
+                <div id="scenario-controls" class="mt-4 flex items-center gap-3">
+                    <!-- JS Generated: Scenario Selector and Save Button -->
+                </div>
+            </div>
+            <div class="text-right mt-4 sm:mt-0">
+                <div id="live-clock" class="font-semibold text-gray-700"></div>
+                <div class="text-xs text-gray-500">Status: <span class="text-green-600 font-semibold">On Track</span></div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main>
+            <!-- KPIs -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                <!-- Total Installs KPI -->
+                <div class="kpi-card col-span-1 md:col-span-2">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-gray-500 font-medium flex items-center">
+                                Projected Installs (12-Month)
+                                <span class="tooltip ml-2 text-gray-400">
+                                    (?)
+                                    <span class="tooltiptext">This is the total number of projected app installs over the 12-month forecast period, based on the current project plan and assumptions.</span>
+                                </span>
+                            </h3>
+                            <p id="installs-value" class="text-4xl font-bold text-gray-800 mt-1">0</p>
+                        </div>
+                        <div class="relative w-24 h-12">
+                            <canvas id="installsSparkline"></canvas>
+                        </div>
+                    </div>
+                    <div class="mt-auto pt-4">
+                        <div class="flex justify-between items-center text-sm mb-1">
+                            <span class="text-gray-600">Actual: 0</span>
+                            <span id="installs-target-text" class="text-gray-600">Target: 0</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- M1 CVR KPI -->
+                <div class="kpi-card">
+                    <h3 class="text-gray-500 font-medium flex items-center">
+                        Month 1 App Store CVR
+                        <span class="tooltip ml-2 text-gray-400">
+                            (?)
+                            <span class="tooltiptext">Conversion Rate: The percentage of users who install the app after visiting the app store page in the first month. Calculated as Installs / Impressions.</span>
+                        </span>
+                    </h3>
+                    <div class="relative flex-grow flex items-center justify-center">
+                        <canvas id="cvrChart" class="max-h-[100px]"></canvas>
+                        <div id="cvr-chart-text" class="absolute inset-0 flex items-center justify-center"></div>
+                    </div>
+                </div>
+
+                <!-- Top Driver KPI -->
+                <div class="kpi-card">
+                     <h3 class="text-gray-500 font-medium flex items-center">
+                        Month 1 Primary Install Source
+                        <span class="tooltip ml-2 text-gray-400">
+                            (?)
+                            <span class="tooltiptext">This is the channel projected to drive the most installs in the first month of the campaign.</span>
+                        </span>
+                    </h3>
+                    <div class="flex-grow flex flex-col items-center justify-center text-center">
+                        <div id="top-driver-icon" class="text-blue-600 mb-2"></div>
+                        <p id="top-driver-text" class="font-bold text-gray-800 text-lg">Loading...</p>
+                        <p id="top-driver-subtext" class="text-sm text-gray-500">Loading...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="bg-white rounded-lg shadow-md mb-6">
+                <div class="border-b border-gray-200">
+                    <nav class="-mb-px flex px-4" aria-label="Tabs">
+                        <button id="tab-plan" data-tab-id="plan" class="tab-button active">Project Plan & Impact</button>
+                        <button id="tab-forecast" data-tab-id="forecast" class="tab-button">Full Forecast Model</button>
+                        <button id="tab-calculations" data-tab-id="calculations" class="tab-button">Calculations</button>
+                        <button id="tab-assumptions" data-tab-id="assumptions" class="tab-button">Assumptions</button>
+                        <button id="tab-mockups" data-tab-id="mockups" class="tab-button">App Store Mockups</button>
+                    </nav>
+                </div>
+                
+                <!-- Tab Content -->
+                <div id="content-plan" class="tab-content p-1">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead id="project-plan-head" class="bg-gray-50">
+                                <!-- JS Generated -->
+                            </thead>
+                            <tbody id="project-plan-body" class="bg-white divide-y divide-gray-200">
+                                <!-- JS Generated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="content-forecast" class="tab-content p-4 hidden">
+                    <!-- Chart Section -->
+                    <div class="bg-white rounded-lg shadow-inner border border-gray-200 p-6 mb-6">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                            <div>
+                                <h3 id="breakdown-chart-title" class="text-lg font-semibold text-gray-800 mb-1">Installs Breakdown</h3>
+                                <p class="text-sm text-gray-500">Shows the source of installs for the selected month.</p>
+                            </div>
+                            <div class="mt-4 sm:mt-0">
+                                <label for="month-selector" class="text-sm font-medium text-gray-700 mr-2">View Month:</label>
+                                <select id="month-selector" class="w-full sm:w-auto border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-2 px-3">
+                                    <!-- Options generated by JS -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="h-64">
+                            <canvas id="breakdownChart"></canvas>
+                        </div>
+                    </div>
+                    <!-- New Charts Section -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div class="bg-white rounded-lg shadow-inner border border-gray-200 p-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-1">Cumulative Install Growth</h3>
+                            <p class="text-sm text-gray-500 mb-4">Projected total installs over 12 months.</p>
+                            <div class="h-64">
+                                <canvas id="cumulativeInstallsChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-inner border border-gray-200 p-6">
+                             <h3 class="text-lg font-semibold text-gray-800 mb-1">Rank Improvement</h3>
+                            <p class="text-sm text-gray-500 mb-4">Projected average keyword rank (lower is better).</p>
+                            <div class="h-64">
+                                <canvas id="rankImprovementChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Table Section -->
+                     <div class="overflow-x-auto">
+                        <table id="forecast-table" class="min-w-full divide-y divide-gray-200 text-sm">
+                            <!-- JS Generated -->
+                        </table>
+                    </div>
+                </div>
+
+                <div id="content-calculations" class="tab-content p-6 hidden">
+                    <!-- JS Generated -->
+                </div>
+
+                <div id="content-assumptions" class="tab-content p-6 hidden">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Core Model Assumptions</h3>
+                    <ul id="assumptions-list" class="list-disc list-inside space-y-2 text-gray-600">
+                       <!-- JS Generated -->
+                    </ul>
+                </div>
+
+                <div id="content-mockups" class="tab-content p-6 hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+                        <div>
+                             <div class="phone-mockup">
+                                <div class="phone-notch"></div>
+                                <div class="phone-screen">
+                                    <img id="mockup-display" src="" alt="App Screenshot" class="w-full" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjEwIiBoZWlnaHQ9IjI5NyIgdmlld0JveD0iMCAwIDIxMCAyOTciIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiI+PHRzcGFuIHg9IjUwJSIgZHk9Ii0xLjJlbSI+PCFET0NUWVBFIHN2ZyBQVUJMSUMgIi0vL1czQy8vRFREIFNWRyAxLjEvL0VOIiAiaHR0cDovL3d3dy53My5vcmcvR3JhcGhpY3MvU1ZHLzEuMS9EVEQvc3ZnMTEuZHRkIj48c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cGF0aCBkPSJNMjcuMjk0IDQuNzA2YTEyIDEyIDAgMCAwLTE2Ljk3IDBsLTEuNDEgMS40MTQgMS40MTQgMS40MTRhMTAgMTAgMCAwIDEgMTQuMTQyIDBsMS40MTQtMS40MTR6TTIzLjA3OCA5LjM0M2wtMS40NzYtMS4zMzgtOC4xNTYgOS4wMjYtMi44OS0yLjg5LTEuNDE0IDEuNDE0IDQuMzA0IDQuMzA0em0tMS4zMzYgOS4zNDRsLTQuMzA1IDQuMzA1LTEuNDE0LTEuNDE0IDQuMzA1LTQuMzA1em0tOC40ODUtNy4wNzFsLTYuMzYzIDYuMzYzLTEuNDE0LTEuNDE0IDYuMzYzLTYuMzYzek0yOCAxNmMwIDIuMjEtLjg5OCA0LjIxOS0yLjM0MyA1LjY1N2wtMS40MTQtMS40MTRBOC4wMDggOC4wMDggMCAwIDAgMjYgMTZ6TTQgMTZjMCAzLjMgMi42OSA2IDYgNnYyYTggOCAwIDAgMS04LTh6bTItOGMwLTIuMjEuODk4LTQuMjE5IDIuMzQzLTUuNjU3bDEuNDE0IDEuNDE0QTguMDA4IDguMDA4IDAgMCAwIDYgOHptMTMuNjU3LTEuNjU3QzE4LjIxOSA0Ljg5OCAxNi4yMSA0IDE0IDR2MmEyNy45MDggMjcuOTA4IDAgMCAwIDUuNjU3IDEuNjU3eiI+PC9wYXRoPjwvc3ZnPjwvdHNwYW4+PHRzcGFuIHg9IjUwJSIgZHk9IjEuMmVtIj5JbWFnZSB1bndhaXRhYmxlPC90c3Bhbj48L3RleHQ+PC9zdmc+'">
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                             <h3 class="text-lg font-semibold text-gray-800 mb-4">App Store Creatives</h3>
+                             <p class="text-gray-600 mb-6">This is a preview of ASO creatives that showcase success, generated live by Gemini. Each visual demonstrates the powerful results of a successful ASO strategy, such as high rankings and user trust. Click a thumbnail to view it in the mockup.</p>
+                            <div id="thumbnails" class="grid grid-cols-2 gap-4">
+                                <div class="mockup-thumbnail active">
+                                    <div class="spinner"></div>
+                                    <img src="" alt="Screenshot 1 Thumbnail" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjEwIiBoZWlnaHQ9IjI5NyIgdmlld0JveD0iMCAwIDIxMCAyOTciIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiI+PHRzcGFuIHg9IjUwJSIgZHk9Ii0xLjJlbSI+PCFET0NUWVBFIHN2ZyBQVUJMSUMgIi0vL1czQy8vRFREIFNWRyAxLjEvL0VOIiAiaHR0cDovL3d3dy53My5vcmcvR3JhcGhpY3MvU1ZHLzEuMS9EVEQvc3ZnMTEuZHRkIj48c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cGF0aCBkPSJNMjcuMjk0IDQuNzA2YTEyIDEyIDAgMCAwLTE2Ljk3IDBsLTEuNDEgMS40MTQgMS40MTQgMS40MTRhMTAgMTAgMCAwIDEgMTQuMTQyIDBsMS40MTQtMS40MTR6TTIzLjA3OCA5LjM0M2wtMS40NzYtMS4zMzgtOC4xNTYgOS4wMjYtMi44OS0yLjg5LTEuNDE0IDEuNDE0IDQuMzA0IDQuMzA0em0tMS4zMzYgOS4zNDRsLTQuMzA1IDQuMzA1LTEuNDE0LTEuNDE0IDQuMzA1LTQuMzA1em0tOC40ODUtNy4wNzFsLTYuMzYzIDYuMzYzLTEuNDE0LTEuNDE0IDYuMzYzLTYuMzYzek0yOCAxNmMwIDIuMjEtLjg5OCA0LjIxOS0yLjM0MyA1LjY1N2wtMS40MTQtMS40MTRBOC4wMDggOC4wMDggMCAwIDAgMjYgMTZ6TTQgMTZjMCAzLjMgMi42OSA2IDYgNnYyYTggOCAwIDAgMS04LTh6bTItOGMwLTIuMjEuODk4LTQuMjE5IDIuMzQzLTUuNjU3bDEuNDE0IDEuNDE0QTguMDA4IDguMDA4IDAgMCAwIDYgOHptMTMuNjU3LTEuNjU3QzE4LjIxOSA0Ljg5OCAxNi4yMSA0IDE0IDR2MmEyNy45MDggMjcuOTA4IDAgMCAwIDUuNjU3IDEuNjU3eiI+PC9wYXRoPjwvc3ZnPjwvdHNwYW4+PHRzcGFuIHg9IjUwJSIgZHk9IjEuMmVtIj5JbWFnZSB1bndhaXRhYmxlPC90c3Bhbj48L3RleHQ+PC9zdmc+'">
+                                </div>
+                                <div class="mockup-thumbnail">
+                                    <div class="spinner"></div>
+                                    <img src="" alt="Screenshot 2 Thumbnail" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjEwIiBoZWlnaHQ9IjI5NyIgdmlld0JveD0iMCAwIDIxMCAyOTciIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiI+PHRzcGFuIHg9IjUwJSIgZHk9Ii0xLjJlbSI+PCFET0NUWVBFIHN2ZyBQVUJMSUMgIi0vL1czQy8vRFREIFNWRyAxLjEvL0VOIiAiaHR0cDovL3d3dy53My5vcmcvR3JhcGhpY3MvU1ZHLzEuMS9EVEQvc3ZnMTEuZHRkIj48c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cGF0aCBkPSJNMjcuMjk0IDQuNzA2YTEyIDEyIDAgMCAwLTE2Ljk3IDBsLTEuNDEgMS40MTQgMS40MTQgMS40MTRhMTAgMTAgMCAwIDEgMTQuMTQyIDBsMS40MTQtMS40MTR6TTIzLjA3OCA5LjM0M2wtMS40NzYtMS4zMzgtOC4xNTYgOS4wMjYtMi44OS0yLjg5LTEuNDE0IDEuNDE0IDQuMzA0IDQuMzA0em0tMS4zMzYgOS4zNDRsLTQuMzA1IDQuMzA1LTEuNDE0LTEuNDE0IDQuMzA1LTQuMzA1em0tOC40ODUtNy4wNzFsLTYuMzYzIDYuMzYzLTEuNDE0LTEuNDE0IDYuMzYzLTYuMzYzek0yOCAxNmMwIDIuMjEtLjg5OCA0LjIxOS0yLjM0MyA1LjY1N2wtMS40MTQtMS40MTRBOC4wMDggOC4wMDggMCAwIDAgMjYgMTZ6TTQgMTZjMCAzLjMgMi42OSA2IDYgNnYyYTggOCAwIDAgMS04LTh6bTItOGMwLTIuMjEuODk4LTQuMjE5IDIuMzQzLTUuNjU3bDEuNDE0IDEuNDE0QTguMDA4IDguMDA4IDAgMCAwIDYgOHptMTMuNjU3LTEuNjU3QzE4LjIxOSA0Ljg5OCAxNi4yMSA0IDE0IDR2MmEyNy45MDggMjcuOTA4IDAgMCAwIDUuNjU3IDEuNjU3eiI+PC9wYXRoPjwvc3ZnPjwvdHNwYW4+PHRzcGFuIHg9IjUwJSIgZHk9IjEuMmVtIj5JbWFnZSB1bndhaXRhYmxlPC90c3Bhbj48L3RleHQ+PC9zdmc+'">
+                                </div>
+                                <div class="mockup-thumbnail">
+                                    <div class="spinner"></div>
+                                    <img src="" alt="Screenshot 3 Thumbnail" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjEwIiBoZWlnaHQ9IjI5NyIgdmlld0JveD0iMCAwIDIxMCAyOTciIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiI+PHRzcGFuIHg9IjUwJSIgZHk9Ii0xLjJlbSI+PCFET0NUWVBFIHN2ZyBQVUJMSUMgIi0vL1czQy8vRFREIFNWRyAxLjEvL0VOIiAiaHR0cDovL3d3dy53My5vcmcvR3JhcGhpY3MvU1ZHLzEuMS9EVEQvc3ZnMTEuZHRkIj48c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cGF0aCBkPSJNMjcuMjk0IDQuNzA2YTEyIDEyIDAgMCAwLTE2Ljk3IDBsLTEuNDEgMS40MTQgMS40MTQgMS40MTRhMTAgMTAgMCAwIDEgMTQuMTQyIDBsMS40MTQtMS40MTR6TTIzLjA3OCA5LjM0M2wtMS40NzYtMS4zMzgtOC4xNTYgOS4wMjYtMi44OS0yLjg5LTEuNDE0IDEuNDE0IDQuMzA0IDQuMzA0em0tMS4zMzYgOS4zNDRsLTQuMzA1IDQuMzA1LTEuNDE0LTEuNDE0IDQuMzA1LTQuMzA1em0tOC40ODUtNy4wNzFsLTYuMzYzIDYuMzYzLTEuNDE0LTEuNDE0IDYuMzYzLTYuMzYzek0yOCAxNmMwIDIuMjEtLjg5OCA0LjIxOS0yLjM0MyA1LjY1N2wtMS40MTQtMS40MTRBOC4wMDggOC4wMDggMCAwIDAgMjYgMTZ6TTQgMTZjMCAzLjMgMi42OSA2IDYgNnYyYTggOCAwIDAgMS04LTh6bTItOGMwLTIuMjEuODk4LTQuMjE5IDIuMzQzLTUuNjU3bDEuNDE0IDEuNDE0QTguMDA4IDguMDA4IDAgMCAwIDYgOHptMTMuNjU3LTEuNjU3QzE4LjIxOSA0Ljg5OCAxNi4yMSA0IDE0IDR2MmEyNy45MDggMjcuOTA4IDAgMCAwIDUuNjU3IDEuNjU3eiI+PC9wYXRoPjwvc3ZnPjwvdHNwYW4+PHRzcGFuIHg9IjUwJSIgZHk9IjEuMmVtIj5JbWFnZSB1bndhaXRhYmxlPC90c3Bhbj48L3RleHQ+PC9zdmc+'">
+                                </div>
+                                <div class="mockup-thumbnail">
+                                    <div class="spinner"></div>
+                                    <img src="" alt="Screenshot 4 Thumbnail" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjEwIiBoZWlnaHQ9IjI5NyIgdmlld0JveD0iMCAwIDIxMCAyOTciIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiI+PHRzcGFuIHg9IjUwJSIgZHk9Ii0xLjJlbSI+PCFET0NUWVBFIHN2ZyBQVUJMSUMgIi0vL1czQy8vRFREIFNWRyAxLjEvL0VOIiAiaHR0cDovL3d3dy53My5vcmcvR3JhcGhpY3MvU1ZHLzEuMS9EVEQvc3ZnMTEuZHRkIj48c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cGF0aCBkPSJNMjcuMjk0IDQuNzA2YTEyIDEyIDAgMCAwLTE2Ljk3IDBsLTEuNDEgMS40MTQgMS40MTQgMS40MTRhMTAgMTAgMCAwIDEgMTQuMTQyIDBsMS40MTQtMS40MTR6TTIzLjA3OCA5LjM0M2wtMS40NzYtMS4zMzgtOC4xNTYgOS4wMjYtMi44OS0yLjg5LTEuNDE0IDEuNDE0IDQuMzA0IDQuMzA0em0tMS4zMzYgOS4zNDRsLTQuMzA1IDQuMzA1LTEuNDE0LTEuNDE0IDQuMzA1LTQuMzA1em0tOC44ODUtNy4wNzFsLTYuMzYzIDYuMzYzLTEuNDE0LTEuNDE0IDYuMzYzLTYuMzYzek0yOCAxNmMwIDIuMjEtLjg5OCA0LjIxOS0yLjM0MyA1LjY1N2wtMS40MTQtMS40MTRBOC4wMDggOC4wMDggMCAwIDAgMjYgMTZ6TTQgMTZjMCAzLjMgMi42OSA2IDYgNnYyYTggOCAwIDAgMS04LTh6bTItOGMwLTIuMjEuODk4LTQuMjE5IDIuMzQzLTUuNjU3bDEuNDE0IDEuNDE0QTguMDA4IDguMDA4IDAgMCAwIDYgOHptMTMuNjU3LTEuNjU3QzE4LjIxOSA0Ljg5OCAxNi4yMSA0IDE0IDR2MmEyNy45MDggMjcuOTA4IDAgMCAwIDUuNjU3IDEuNjU3eiI+PC9wYXRoPjwvc3ZnPjwvdHNwYW4+PHRzcGFuIHg9IjUwJSIgZHk9IjEuMmVtIj5JbWFnZSB1bndhaXRhYmxlPC90c3Bhbj48L3RleHQ+PC9zdmc+'">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script type="module" src="index.tsx"></script>
+</body>
+</html>
