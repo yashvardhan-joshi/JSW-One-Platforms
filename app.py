@@ -1,51 +1,69 @@
-# app.py
+# app.py (patched)
 import streamlit as st
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
 st.set_page_config(page_title="Campaign Analytics | JSW One Platforms", layout="wide")
 
 # -------- Utility functions --------
-@st.cache_data
-def load_df(file_or_path):
-    if hasattr(file_or_path, "read"):  # uploaded file
-        df = pd.read_csv(file_or_path)
-    else:
-        df = pd.read_csv(file_or_path)
-    # coercions
+@st.cache_data(show_spinner=False)
+def load_df_any(src):
+    """Load CSV from uploaded file handle, local path, or URL."""
+    if hasattr(src, "read"):  # uploaded file-like
+        return pd.read_csv(src)
+    return pd.read_csv(src)   # local path or URL
+
+def coerce_schema(df: pd.DataFrame) -> pd.DataFrame:
+    # Dates & numerics
     df['date'] = pd.to_datetime(df['date'], errors='coerce')
-    num_cols = ['impressions','clicks','page_visits','signups','registrations','opportunities','orders','spend','target_cpl']
+    num_cols = [
+        'impressions','clicks','page_visits','signups','registrations',
+        'opportunities','orders','spend','target_cpl'
+    ]
     for c in num_cols:
-        if c in df.columns:
-            df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
-    df['market']  = df.get('market', '').fillna('All Markets')
-    df['segment'] = df.get('segment', '').fillna('—')
+        if c not in df.columns:
+            df[c] = 0
+        df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
+
+    # Ensure categorical columns exist
+    for c, default in [('market','All Markets'),('segment','—'),('source','Unknown'),('campaign','Unknown')]:
+        if c not in df.columns:
+            df[c] = default
+        else:
+            df[c] = df[c].fillna(default)
     return df
 
-def format_inr(x):
-    try:
-        return f"₹{float(x):,.0f}"
-    except:
-        return "₹0"
-
-# -------- Sidebar --------
+# -------- Data source handling --------
 st.sidebar.title("Global Filters")
+uploaded = st.sidebar.file_uploader("Upload consolidated CSV", type=["csv"])
 
-# Data source: default to repo CSV but allow upload
-uploaded = st.sidebar.file_uploader("Upload consolidated CSV", type=["csv"]) 
-# NOTE: keep a default CSV named 'campaign_data_consolidated.csv' in repo root
-DEFAULT_CSV = "campaign_data_consolidated.csv"
+DEFAULT_CSV = "campaign_data_consolidated.csv"  # expected in repo root
+DEFAULT_CSV_URL = st.secrets.get("DEFAULT_CSV_URL")  # optional raw GitHub URL fallback
 
-df = load_df(uploaded if uploaded else DEFAULT_CSV)
+if uploaded:
+    df = coerce_schema(load_df_any(uploaded))
+elif Path(DEFAULT_CSV).exists():
+    df = coerce_schema(load_df_any(DEFAULT_CSV))
+elif DEFAULT_CSV_URL:
+    df = coerce_schema(load_df_any(DEFAULT_CSV_URL))
+else:
+    st.error(
+        "No data file found.\n\n"
+        "Please either:\n"
+        "• Upload a consolidated CSV (sidebar), or\n"
+        f"• Commit `{DEFAULT_CSV}` to the repo root, or\n"
+        "• Set `DEFAULT_CSV_URL` in Streamlit Secrets to a raw GitHub URL."
+    )
+    st.stop()
 
-# Filters
+# -------- Filters --------
 months   = st.sidebar.multiselect("Month", sorted(df['date'].dt.to_period('M').astype(str).unique().tolist()))
 markets  = st.sidebar.multiselect("Market (State)", sorted(df['market'].dropna().unique().tolist()))
 segments = st.sidebar.multiselect("Segment (Industry)", sorted(df['segment'].dropna().unique().tolist()))
 sources  = st.sidebar.multiselect("Source (Channel)", sorted(df['source'].dropna().unique().tolist()))
 campaigns= st.sidebar.multiselect("Campaign", sorted(df['campaign'].dropna().unique().tolist()))
 
-# Apply filters
 f = df.copy()
 if months:    f = f[f['date'].dt.to_period('M').astype(str).isin(months)]
 if markets:   f = f[f['market'].isin(markets)]
@@ -70,7 +88,7 @@ col1.metric("Total Leads", int(f['signups'].sum()))
 col2.metric("Registrations", int(f['registrations'].sum()))
 col3.metric("Opportunities", int(f['opportunities'].sum()))
 col4.metric("Orders", int(f['orders'].sum()))
-col5.metric("Spend", format_inr(f['spend'].sum()))
+col5.metric("Spend", f"₹{float(f['spend'].sum()):,.0f}")
 
 st.divider()
 
@@ -86,7 +104,7 @@ st.bar_chart(funnel.set_index("Stage"))
 st.subheader("Channel Performance")
 ch = f.groupby('source', as_index=False)[['signups','registrations','orders','spend']].sum()
 ch = ch.sort_values('orders', ascending=False)
-st.dataframe(ch.style.format({"spend": format_inr}))
+st.dataframe(ch.style.format({"spend": lambda x: f"₹{x:,.0f}"}))
 
 # -------- Top Campaigns --------
 st.subheader("Top Campaigns")
@@ -96,7 +114,7 @@ if rank_metric.startswith("Orders"):
     tc = tc.sort_values(['orders','roas_proxy'], ascending=False)
 else:
     tc = tc.sort_values(['roas_proxy','orders'], ascending=False)
-st.dataframe(tc.head(topn).style.format({"spend": format_inr, "roas_proxy": "{:.2f}"}))
+st.dataframe(tc.head(topn).style.format({"spend": lambda x: f"₹{x:,.0f}", "roas_proxy": "{:.2f}"}))
 
 # -------- Flag Summary --------
 st.subheader("Flag Summary")
@@ -108,7 +126,7 @@ out['CPL Flag'] = np.where((np.abs(out['actual_cpl'] - out['target_cpl']) / out[
 flags = out[['date','market','segment','source','campaign','registration_rate','actual_cpl','Reg Flag','CPL Flag']].copy()
 flags_fmt = flags.copy()
 flags_fmt['registration_rate'] = (flags_fmt['registration_rate']*100).round(1).astype(str) + "%"
-flags_fmt['actual_cpl'] = flags_fmt['actual_cpl'].apply(format_inr)
+flags_fmt['actual_cpl'] = flags_fmt['actual_cpl'].apply(lambda x: f"₹{x:,.0f}" if pd.notna(x) else "₹0")
 st.dataframe(flags_fmt)
 
 # Export flags
