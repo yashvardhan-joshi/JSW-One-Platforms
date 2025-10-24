@@ -1,4 +1,4 @@
-# app.py (patched)
+# app.py (patched for CRM-derived leads)
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -6,27 +6,20 @@ from pathlib import Path
 
 st.set_page_config(page_title="Campaign Analytics | JSW One Platforms", layout="wide")
 
-# -------- Utility functions --------
 @st.cache_data(show_spinner=False)
 def load_df_any(src):
-    """Load CSV from uploaded file handle, local path, or URL."""
-    if hasattr(src, "read"):  # uploaded file-like
+    if hasattr(src, "read"):
         return pd.read_csv(src)
-    return pd.read_csv(src)   # local path or URL
+    return pd.read_csv(src)
 
 def coerce_schema(df: pd.DataFrame) -> pd.DataFrame:
-    # Dates & numerics
     df['date'] = pd.to_datetime(df['date'], errors='coerce')
-    num_cols = [
-        'impressions','clicks','page_visits','signups','registrations',
-        'opportunities','orders','spend','target_cpl'
-    ]
+    num_cols = ['impressions','clicks','page_visits','leads','registrations',
+                'opportunities','orders','spend','target_cpl']
     for c in num_cols:
         if c not in df.columns:
             df[c] = 0
         df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
-
-    # Ensure categorical columns exist
     for c, default in [('market','All Markets'),('segment','—'),('source','Unknown'),('campaign','Unknown')]:
         if c not in df.columns:
             df[c] = default
@@ -34,12 +27,12 @@ def coerce_schema(df: pd.DataFrame) -> pd.DataFrame:
             df[c] = df[c].fillna(default)
     return df
 
-# -------- Data source handling --------
+# Data source handling
 st.sidebar.title("Global Filters")
 uploaded = st.sidebar.file_uploader("Upload consolidated CSV", type=["csv"])
 
-DEFAULT_CSV = "campaign_data_consolidated.csv"  # expected in repo root
-DEFAULT_CSV_URL = st.secrets.get("DEFAULT_CSV_URL")  # optional raw GitHub URL fallback
+DEFAULT_CSV = "campaign_data_consolidated.csv"
+DEFAULT_CSV_URL = st.secrets.get("DEFAULT_CSV_URL")
 
 if uploaded:
     df = coerce_schema(load_df_any(uploaded))
@@ -57,7 +50,7 @@ else:
     )
     st.stop()
 
-# -------- Filters --------
+# Filters
 months   = st.sidebar.multiselect("Month", sorted(df['date'].dt.to_period('M').astype(str).unique().tolist()))
 markets  = st.sidebar.multiselect("Market (State)", sorted(df['market'].dropna().unique().tolist()))
 segments = st.sidebar.multiselect("Segment (Industry)", sorted(df['segment'].dropna().unique().tolist()))
@@ -77,14 +70,14 @@ st.sidebar.caption(f"Rows: {len(f):,}")
 topn = st.sidebar.slider("Top N Campaigns", 3, 20, 5)
 rank_metric = st.sidebar.selectbox("Rank by", ["Orders", "ROAS-proxy (Orders/Spend)"])
 
-# -------- Header --------
+# Header
 st.title("Campaign Analytics Dashboard — JSW One Platforms (MSME)")
-st.caption("Leads = FB Results + Google Conversions | Registrations = CRM Registered (1/0)")
+st.caption("Leads = COUNT DISTINCT Salesforce Account SF Id | Registrations = SUM of Registered (1/0)")
 st.divider()
 
-# -------- KPIs --------
+# KPIs
 col1, col2, col3, col4, col5 = st.columns(5)
-col1.metric("Total Leads", int(f['signups'].sum()))
+col1.metric("Total Leads", int(f['leads'].sum()))
 col2.metric("Registrations", int(f['registrations'].sum()))
 col3.metric("Opportunities", int(f['opportunities'].sum()))
 col4.metric("Orders", int(f['orders'].sum()))
@@ -92,23 +85,23 @@ col5.metric("Spend", f"₹{float(f['spend'].sum()):,.0f}")
 
 st.divider()
 
-# -------- Funnel --------
+# Funnel
 st.subheader("Funnel Analysis")
 funnel = pd.DataFrame({
     "Stage": ["Impressions","Clicks","Leads","Registrations","Opportunities","Orders"],
-    "Value": [f['impressions'].sum(), f['clicks'].sum(), f['signups'].sum(), f['registrations'].sum(), f['opportunities'].sum(), f['orders'].sum()]
+    "Value": [f['impressions'].sum(), f['clicks'].sum(), f['leads'].sum(), f['registrations'].sum(), f['opportunities'].sum(), f['orders'].sum()]
 })
 st.bar_chart(funnel.set_index("Stage"))
 
-# -------- Channel Performance --------
+# Channel Performance
 st.subheader("Channel Performance")
-ch = f.groupby('source', as_index=False)[['signups','registrations','orders','spend']].sum()
+ch = f.groupby('source', as_index=False)[['leads','registrations','orders','spend']].sum()
 ch = ch.sort_values('orders', ascending=False)
 st.dataframe(ch.style.format({"spend": lambda x: f"₹{x:,.0f}"}))
 
-# -------- Top Campaigns --------
+# Top Campaigns
 st.subheader("Top Campaigns")
-tc = f.groupby('campaign', as_index=False)[['orders','spend','signups','registrations']].sum()
+tc = f.groupby('campaign', as_index=False)[['orders','spend','leads','registrations']].sum()
 tc['roas_proxy'] = np.where(tc['spend']>0, tc['orders']/tc['spend'], np.nan)
 if rank_metric.startswith("Orders"):
     tc = tc.sort_values(['orders','roas_proxy'], ascending=False)
@@ -116,11 +109,11 @@ else:
     tc = tc.sort_values(['roas_proxy','orders'], ascending=False)
 st.dataframe(tc.head(topn).style.format({"spend": lambda x: f"₹{x:,.0f}", "roas_proxy": "{:.2f}"}))
 
-# -------- Flag Summary --------
+# Flags
 st.subheader("Flag Summary")
 out = f.copy()
-out['actual_cpl'] = out['spend'] / out['signups'].replace(0, np.nan)
-out['registration_rate'] = out['registrations'] / out['signups'].replace(0, np.nan)
+out['actual_cpl'] = out['spend'] / out['leads'].replace(0, np.nan)
+out['registration_rate'] = out['registrations'] / out['leads'].replace(0, np.nan)
 out['Reg Flag'] = np.where(out['registration_rate'].fillna(0) < 0.10, '⚠️', '✅')
 out['CPL Flag'] = np.where((np.abs(out['actual_cpl'] - out['target_cpl']) / out['target_cpl']).fillna(0) > 0.10, '⚠️', '✅')
 flags = out[['date','market','segment','source','campaign','registration_rate','actual_cpl','Reg Flag','CPL Flag']].copy()
@@ -134,4 +127,4 @@ csv = flags.to_csv(index=False).encode('utf-8')
 st.download_button("Download flagged_campaigns.csv", data=csv, file_name="flagged_campaigns.csv", mime="text/csv")
 
 st.divider()
-st.caption("Upload a fresh consolidated CSV anytime to refresh the dashboard. For scheduled updates, commit a new campaign_data_consolidated.csv to this repo.")
+st.caption("To refresh the dashboard, upload a new CSV (sidebar) or commit an updated campaign_data_consolidated.csv.")
