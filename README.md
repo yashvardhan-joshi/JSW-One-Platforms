@@ -1,20 +1,35 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Campaign Analytics Dashboard — JSW One Platforms (MSME)
 
-# Run and deploy your AI Studio app
+This repo hosts a Streamlit app for a shareable, online dashboard.
 
-This contains everything you need to run your app locally.
+## Lead & Registration definitions
+- **Leads** = Facebook *Results* + Google *Conversions*
+- **Registrations** = Salesforce *Registered* (1/0), summed
 
-View your app in AI Studio: https://ai.studio/apps/drive/1L6BBMC6CF_toicKhhiPYJKCgf65XUnum
+## Files
+- `app.py`: Streamlit app
+- `campaign_data_consolidated.csv`: consolidated dataset (Month × Market × Segment × Source × Campaign)
+- `requirements.txt`: dependencies
 
-## Run Locally
+## Run locally
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
 
-**Prerequisites:**  Node.js
+## Deploy (Streamlit Cloud)
+1. Push this repo to GitHub: `yashvardhan-joshi/JSW-One-Platforms`.
+2. Go to https://share.streamlit.io → Deploy → select this repo → main file = `app.py`.
+3. The app gets a public URL (e.g., `https://jsw-one-platforms.streamlit.app`).
 
+## Updating data
+Replace/commit a new `campaign_data_consolidated.csv` (same schema). The app will load the latest file.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+---
+
+### Data schema
+```
+date, market, segment, source, campaign,
+impressions, clicks, page_visits, signups, registrations,
+opportunities, orders, spend, target_cpl
+```
